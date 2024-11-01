@@ -1,0 +1,90 @@
+---
+title: "dissertation_mapping"
+output: html_document
+date: "2024-06-15"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load in packages}
+library(sf)
+library(tidyverse)
+library(tidycensus)
+library(rmapshaper)
+library(tmap)
+```
+
+```{r bring in data}
+getwd()
+GBIF <- read_csv("GBIF_lobata2.csv")
+colnames(GBIF)
+gbif <- GBIF %>% 
+  dplyr::select(gbifID, genus, species, Latitude, Longitude)
+
+class(gbif)
+getwd()
+write_csv(gbif, "dissertation/gbif.csv")
+
+
+
+
+
+
+GBIF2 <- GBIF2 %>% 
+  st_as_sf(coords = c("Latitude", "Longitude"))
+st_write(GBIF2, "gbif2.shp")
+st_crs(GBIF2)
+
+GBIF <- GBIF %>% 
+  st_as_sf(coords = c("Latitude", "Longitude"),
+           crs = "+proj=utm +zone=10 +datum=NAD83 +ellps=GRS80") %>% 
+  dplyr::select(gbifID, genus, species, geometry)
+st_crs(GBIF)
+st_crs(GBIF)==st_crs(soco)
+glimpse(GBIF)
+```
+
+```{r get soco to clip GBIF to}
+
+# get data
+soco <- get_acs(geography = "county", 
+                     year = 2010,
+                     variables = "B01003_001",
+                     state = "CA",
+                     county = "Sonoma",
+                     survey = "acs5",
+                     output = "wide",
+                     geometry = TRUE)
+# mutate
+soco <- soco %>% 
+         mutate(GEOID = as.numeric(GEOID)) %>% 
+  dplyr::select(GEOID, NAME, geometry)
+glimpse(soco)
+
+# transform in appropriate projection
+soco <- st_transform(soco, crs = "+proj=utm +zone=10 +datum=NAD83 +ellps=GRS80")
+
+```
+
+```{r clip that bitch}
+class(GBIF)
+glimpse(GBIF)
+lobata <-  st_join(GBIF, soco, join = st_within)
+st_write(GBIF, "gbiflobata.shp")
+st_write(soco, "soco.shp", delete_layer=TRUE)
+
+```
+```{r map}
+class(soco)
+st_crs(soco)
+soco <- soco[-100,]
+# check your work
+tm_shape(soco) +
+  tm_borders() 
+tm_shape(lobata) +
+  tm_dots("blue")
+```
+
+
